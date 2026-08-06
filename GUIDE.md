@@ -1,5 +1,5 @@
 # The orchestra: user manual
-Version 1.8.0
+Version 1.9.0
 
 ---
 
@@ -85,6 +85,35 @@ Starting a session always looks the same:
 cd C:\path\to\your\project
 claude
 ```
+
+### /start - the entry point
+
+If you are not sure which of the commands below you want, type `/start` and
+nothing else. It asks, then runs the mode you picked. Five steps:
+
+1. **Orientation.** Reads `PROJECT.md` and the listing of `specs/` - names
+   only. It does NOT call the Scout: that is a full diagnosis and an
+   expensive one, and the mode you end up in runs its own anyway.
+2. **The question.** The four modes as a numbered list, one line of
+   explanation each. A mode that cannot work here is marked unavailable
+   with the reason on the same line - no `PROJECT.md` or `Mode:
+   from-scratch` blocks Feature (nothing to build from), an empty `specs/`
+   says so too. It never picks for you, however obvious the answer looks.
+3. **The inputs.** Only what is missing, one short question at a time. For
+   Feature the specs in `specs/` are listed **numbered** and you answer with
+   a number - no typing out paths. For Foundation, the reference path or
+   link. For Concept, the brief - and if you do not know what to write, the
+   whole brief questionnaire arrives as one list. For Log, what you changed.
+   The Figma link is only asked for if the mode needs it and the passport
+   does not already have it.
+4. **Handover.** It reads the chosen mode's skill and runs it with what it
+   collected. Nothing is duplicated inside `/start`; from here on the
+   session behaves exactly as if you had typed the mode's own command.
+5. **After.** One paragraph pointing at `orchestra -Share`. It does not run
+   it and sends nothing.
+
+The commands below are the same four modes, reachable directly - for when
+you already know which one you want.
 
 ### /feature specs/name.md - the main mode
 Building a feature's mockups from a spec. For projects that already have a
@@ -254,7 +283,8 @@ responsibility.
 2. Check before you start: the library is published (Assets -> Publish with
    no unsaved changes) and enabled in the working file; variable collections
    are published.
-3. `orchestra` -> `claude` -> `/feature specs/small-feature.md`
+3. `orchestra` -> `claude` -> `/start` -> mode 3 (Feature) -> pick the spec
+   by number
 4. Look at two artefacts: the Scout's passport (did it read the project
    correctly) and the Builder's "could not build" list (where the build
    hits the limits of your design system). This is calibration, not an exam.
@@ -263,7 +293,7 @@ responsibility.
 
 | Symptom | What to do |
 |---|---|
-| /feature is missing from /skills | you are not in the project folder, or orchestra was never run here |
+| /start or /feature is missing from /skills | you are not in the project folder, or orchestra was never run here. If the rest are there but `/start` is not, the project is on an older version: `orchestra -Update`, then restart claude |
 | the agents are missing from /agents | orchestra -Update; restart claude |
 | my edits to an agent vanished after -Update | they are right there, in `<file>.bak` - the installer never deletes changed files |
 | -Share says the repository is not configured | set `$env:DESIGN_ORCHESTRA_REPO`, see section 6c |

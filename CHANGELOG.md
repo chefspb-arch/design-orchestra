@@ -4,6 +4,54 @@ Release history of the orchestra. Loosely follows Keep a Changelog.
 (Not to be confused with `CHANGELOG-DESIGN.md`, which is created inside
 your project and tracks mockup versions rather than the tool.)
 
+## 1.9.0
+
+One command to start from. The orchestra had four entry points and no door:
+you had to know that `/feature` exists, that it is the wrong command for a
+greenfield project, and that it wants a spec path typed out by hand. That
+was the single most common complaint - not that the chain is bad, but that
+it is not obvious where to begin.
+
+### Added
+
+- **`/start` - the interactive entry point.** It reads `PROJECT.md` and the
+  listing of `specs/` for a cheap orientation (no Scout - that is a
+  diagnosis, and an expensive one), offers the four modes as a numbered
+  list with one line of explanation each, collects whatever the chosen mode
+  needs, and hands over to that mode's own skill. No mode logic is
+  duplicated inside it: it routes and stops.
+  - **Feature no longer asks for a path.** The specs in `specs/` are listed
+    numbered (minus `_template.md`); you answer with a number.
+  - **Modes that cannot work are marked, not hidden.** No `PROJECT.md`, or
+    `Mode: from-scratch` in it, and Feature is shown as unavailable with the
+    reason on the same line; an empty `specs/` says so too. Hiding an option
+    only moves the confusion one step later.
+  - **It never picks the mode for you**, however obvious the state of the
+    project makes the answer. Routing on a guess is how people end up in
+    `/feature` on a project with no design system.
+  - **The Figma link is asked for only when it is both needed and missing**
+    from the passport.
+  - After the mode finishes, it names `orchestra -Share` in one paragraph
+    and does nothing else - it never runs it and never sends anything.
+
+### Documentation
+
+- `/start` heads the table of in-Claude commands in the README, marked
+  "start here". The others stay as they are: they are for people who already
+  know what they want.
+- First run, in both the README and the guide, now says `/start` instead of
+  `/feature specs/your-spec.md`.
+- The guide describes the skill's five steps, so the routing is inspectable
+  rather than magic.
+- **The installer's closing hint pointed past the new door.** Step 3 of
+  "Next:" after a successful install said `/feature specs/name.md` - the
+  first thing a new user reads, sending them straight to the command that
+  needs a path and a design system. It now leads with `/start` and keeps
+  `/feature` underneath as the shortcut for people who know the mode.
+- CI's install smoke test asserts five skills, `start` among them, and
+  compares the deployed count against the distribution - a skill added to
+  `dist/` but forgotten in the assertion list would otherwise ship untested.
+
 ## 1.8.2
 
 The same exit-code bug as 1.8.1, one layer up: in the CI step itself.

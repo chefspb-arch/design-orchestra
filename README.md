@@ -54,8 +54,8 @@ To remove the command: `.\install.ps1 -Uninstall`.
 
 ## First run
 
-Before the first `/feature`, check the Figma side - the installer does not
-verify any of it, and a miss only surfaces halfway through a run:
+Before the first run, check the Figma side - the installer does not verify
+any of it, and a miss only surfaces halfway through a run:
 
 - [ ] Figma MCP (remote) is connected in Claude Code and authorised
 - [ ] your Figma account has a Dev or Full seat on a paid plan
@@ -71,12 +71,15 @@ claude                        # check the header: the path is YOUR project!
 ```
 Inside Claude Code:
 ```
-/feature specs/your-spec.md
+/start
 ```
+It asks what you want to do and takes it from there - no arguments, no
+paths. The other commands are listed below if you already know which mode
+you want.
 
 **If Claude Code was already running when you ran `orchestra`, restart it**
 (`/exit`, then `claude`). Skills and agents are read at session start, so
-in an open session `/feature` stays unknown until you restart.
+in an open session `/start` stays unknown until you restart.
 
 Full manual: [GUIDE.md](GUIDE.md).
 
@@ -96,10 +99,14 @@ Inside Claude Code, from the project folder:
 
 | Command | What it does |
 |---|---|
+| `/start` | **start here** - asks what you want to do, collects what that mode needs (including which spec, picked by number) and runs it |
 | `/feature specs/name.md` | the full chain: spec -> mockups, with two decision gates |
 | `/concept` | visual directions for a greenfield project |
 | `/foundation` | design system foundation from a reference |
 | `/log <what you changed and why>` | record an edit you made by hand, outside the `/feature` cycle - without it that edit never reaches the learning loop |
+
+Everything below `/start` is the same set of modes, reachable directly -
+for when you already know which one you want.
 
 ## Where things live
 
@@ -138,11 +145,11 @@ Check with `Get-Command orchestra`.
 **"File is not digitally signed" / "running scripts is disabled"** - allow
 local scripts once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
-**`/feature` - Unknown command** - look at the Claude Code header: if it
-shows `C:\WINDOWS\System32` or some other folder, you started claude outside
-your project. `/exit` -> `cd` into the project -> `claude`.
+**`/start` (or `/feature`) - Unknown command** - look at the Claude Code
+header: if it shows `C:\WINDOWS\System32` or some other folder, you started
+claude outside your project. `/exit` -> `cd` into the project -> `claude`.
 
-**A Figma plugin skill hijacks the request** - make `/feature` the first
+**A Figma plugin skill hijacks the request** - make `/start` the first
 command of the session, with no accompanying text.
 
 **The Scout "cannot see" the library** - the library must be published
@@ -156,6 +163,10 @@ there, in `<file>.bak`. The installer never deletes changed files; it sets
 a copy aside and prints the list.
 
 ## How it works
+
+`/start` is only a router: it works out roughly where the project stands,
+asks which of the four modes you want, collects that mode's inputs and hands
+over. It never chooses the mode for you and holds no logic of its own.
 
 The Conductor (the `/feature` skill) runs a chain of six agents: the Scout
 (project diagnosis -> passport), the Spec Analyst (plan plus four review
