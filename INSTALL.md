@@ -29,6 +29,26 @@ downloaded ones. It is the mildest sufficient relaxation.
 
 To remove the command: `.\install.ps1 -Uninstall`.
 
+## 2a. macOS and Linux
+
+Use `dist/orchestra.sh`. There is no registration script for it yet, so put it
+on your PATH yourself - a symlink works, since the installer resolves the link
+before looking for its payload:
+
+    chmod +x dist/orchestra.sh
+    mkdir -p ~/.local/bin
+    ln -s "$PWD/dist/orchestra.sh" ~/.local/bin/orchestra
+
+Options take a double dash there: `--update`, `--status`, `--promote`,
+`--no-banner`. The seed lives in
+`${XDG_DATA_HOME:-~/.local/share}/design-orchestra/seed`.
+
+`--share` is **not available** in the shell installer: it prepares text for a
+public issue, its anonymisation cannot be reproduced faithfully with POSIX
+tools, and a second, weaker privacy floor for macOS and Linux would be worse
+than not having the feature there. It refuses and exits non-zero. Use
+PowerShell for that one command.
+
 ## 3. Usage
 In EVERY project (isolated build, projects cannot see each other):
 
@@ -46,6 +66,7 @@ Other commands:
                          # (picked up by NEW installs only)
     orchestra -Share     # propose rules to the public seed:
                          # confirmed one rule at a time
+                         # (PowerShell only - see 2a)
 
 ## Isolation architecture
 - Agents and skills: a copy under `.claude\` in every project. Edits in one
@@ -54,9 +75,10 @@ Other commands:
   and listed.
 - Brain: its own `./brain` per project. Journal, precedents and rules never
   cross between projects.
-- Your shared seed: `%APPDATA%\design-orchestra\seed\` - outside the
-  repository, so private rules never land in git. Override the path with
-  the `DESIGN_ORCHESTRA_HOME` variable.
+- Your shared seed: `%APPDATA%\design-orchestra\seed\` on Windows,
+  `${XDG_DATA_HOME:-~/.local/share}/design-orchestra/seed` on macOS and
+  Linux - outside the repository either way, so private rules never land in
+  git. Override the path with the `DESIGN_ORCHESTRA_HOME` variable.
 - The only channel that carries knowledge between projects is a manual
   `orchestra -Promote`: you decide which personal rules become the starting
   point for future projects.

@@ -132,6 +132,124 @@ jobs:
           Write-Host "PSScriptAnalyzer: clean" -ForegroundColor Green
           exit 0
 
+  shell:
+    name: Shell installer
+    # ubuntu, not windows: this is the only job that runs orchestra.sh on the
+    # platform it is actually FOR. Developed on Git Bash it may look fine and
+    # still trip over a BSD/GNU difference or a CRLF checkout.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        run: |
+          shellcheck --version
+          shellcheck --shell=sh dist/orchestra.sh dist/banner.sh
+          echo "shellcheck: clean"
+
+      - name: Line endings must be LF
+        run: |
+          bad=0
+          for f in dist/orchestra.sh dist/banner.sh; do
+            # -P with an explicit \r, not $'\r': the shell-quoted form has a
+            # habit of reaching grep as an empty pattern, which matches every
+            # line and turns this check into a guaranteed pass or fail.
+            if LC_ALL=C grep -qP '\r' "$f"; then echo "CRLF in $f"; bad=1; fi
+          done
+          [ "$bad" -eq 0 ] || exit 1
+          echo "both scripts are LF"
+
+      - name: banner.sh must stay a library
+        run: |
+          # Sourcing it has to be silent and side-effect free: orchestra.sh
+          # sources it before it has decided what the run is even about.
+          before=$(set -o; env | sort)
+          out=$(. ./dist/banner.sh 2>&1)
+          . ./dist/banner.sh
+          after=$(set -o; env | sort)
+          if [ -n "$out" ]; then echo "sourcing printed: $out"; exit 1; fi
+          if [ "$before" != "$after" ]; then echo "sourcing changed shell state"; exit 1; fi
+          echo "sourcing is silent and inert"
+
+      - name: Banner must not exceed 78 columns
+        run: |
+          . ./dist/banner.sh
+          orchestra_show_banner "$(cat VERSION)" "https://github.com/example/design-orchestra" > /tmp/banner.txt
+          w=$(awk '{ if (length($0) > m) m = length($0) } END { print m }' /tmp/banner.txt)
+          h=$(wc -l < /tmp/banner.txt)
+          echo "width $w, height $h"
+          [ "$w" -le 78 ] || { echo "banner is $w columns wide"; exit 1; }
+          [ "$h" -le 12 ] || { echo "banner is $h lines tall"; exit 1; }
+          # Strict ASCII: PowerShell 5.1 mangles anything else, and the two
+          # installers must print the same bytes.
+          if LC_ALL=C grep -qP '[^\x20-\x7e]' /tmp/banner.txt; then
+            echo "non-ASCII in the banner"; exit 1
+          fi
+          echo "78-column and ASCII limits hold"
+
+      - name: Install smoke test on an empty folder
+        run: |
+          set -eu
+          orch="$GITHUB_WORKSPACE/dist/orchestra.sh"
+          export DESIGN_ORCHESTRA_HOME="$RUNNER_TEMP/seed"
+          export DESIGN_ORCHESTRA_REPO="https://github.com/example/design-orchestra"
+          proj="$RUNNER_TEMP/proj"; mkdir -p "$proj"; cd "$proj"
+
+          # Same intent as the PowerShell smoke test: assert the exit code of
+          # every branch, so one that falls off the end cannot pass silently.
+          run() {
+            label=$1; expected=$2; shift 2
+            set +e; sh "$orch" "$@" > /tmp/out.txt 2>&1; code=$?; set -e
+            if [ "$code" -ne "$expected" ]; then
+              echo "  $label -> $code, expected $expected"; sed 's/^/    | /' /tmp/out.txt; exit 1
+            fi
+            echo "  $label -> $code (ok)"
+          }
+
+          run "install"   0
+          for f in .claude/agents/builder.md .claude/skills/start/SKILL.md \
+                   .claude/skills/feature/SKILL.md .claude/skills/concept/SKILL.md \
+                   .claude/skills/foundation/SKILL.md .claude/skills/log/SKILL.md \
+                   AGENTS.md brain/rules/ux-patterns.md specs/_template.md \
+                   .orchestra-version .orchestra-manifest.txt; do
+            [ -e "$f" ] || { echo "not deployed: $f"; exit 1; }
+          done
+          src=$(find "$GITHUB_WORKSPACE/dist/payload/.claude/skills" -mindepth 1 -maxdepth 1 -type d | wc -l)
+          dst=$(find .claude/skills -mindepth 1 -maxdepth 1 -type d | wc -l)
+          [ "$src" -eq "$dst" ] || { echo "deployed $dst skills, distribution has $src"; exit 1; }
+          echo "  skills deployed -> $dst (ok)"
+
+          run "--update"   0 --update
+          run "re-run"     0
+          run "--status"   0 --status
+          run "--promote"  0 --promote
+          run "--no-banner" 0 --no-banner
+          run "--help"     0 --help
+          # --share must refuse rather than approximate: its anonymisation
+          # cannot be reproduced with POSIX tools, and a second, weaker privacy
+          # floor would be worse than not having the feature here.
+          run "--share refuses"  2 --share
+          run "unknown option"   2 --updat
+
+          cd "$GITHUB_WORKSPACE"
+          run "guard: refuses inside the repo" 1
+
+          echo "All exit codes are explicit and correct"
+
+      - name: A manifest written on Windows must not orphan everything
+        run: |
+          set -eu
+          orch="$GITHUB_WORKSPACE/dist/orchestra.sh"
+          export DESIGN_ORCHESTRA_HOME="$RUNNER_TEMP/seed2"
+          proj="$RUNNER_TEMP/proj2"; mkdir -p "$proj"; cd "$proj"
+          sh "$orch" --no-banner > /dev/null
+          # Exactly what init-orchestra.ps1 writes: backslash separators.
+          sed 's|/|\\|g' .orchestra-manifest.txt > m.txt && mv m.txt .orchestra-manifest.txt
+          sh "$orch" --update > /dev/null
+          n=$(find .claude -name '*.bak' | wc -l)
+          [ "$n" -eq 0 ] || { echo "$n files were wrongly treated as orphans"; exit 1; }
+          echo "cross-platform manifest handled (0 false orphans)"
+
   encoding:
     name: Encoding and structure
     runs-on: windows-latest

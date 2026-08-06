@@ -4,6 +4,63 @@ Release history of the orchestra. Loosely follows Keep a Changelog.
 (Not to be confused with `CHANGELOG-DESIGN.md`, which is created inside
 your project and tracks mockup versions rather than the tool.)
 
+## 1.12.0
+
+The orchestra installs on macOS and Linux. One command is deliberately left
+behind, and says so.
+
+### Added
+
+- **`dist/orchestra.sh`** - the shell counterpart of `init-orchestra.ps1`.
+  `orchestra`, `--update`, `--status`, `--promote`, `--no-banner`, `--help`,
+  with the same isolation guarantees, the same `*.bak` discipline and the same
+  rule that every path out of the script ends in an explicit exit. Written to
+  POSIX sh - no arrays, no `[[ ]]`, not even `local` - so it runs under dash,
+  zsh and the bash 3.2 that macOS still ships. It resolves symlinks before
+  looking for its payload, because putting it on `PATH` means a symlink in
+  `~/.local/bin` and the payload lives next to the real file.
+- **The seed follows XDG on Unix**: `$XDG_DATA_HOME/design-orchestra`, falling
+  back to `~/.local/share`. `DESIGN_ORCHESTRA_HOME` overrides it as before.
+- **A `Shell installer` CI job on ubuntu-latest** - shellcheck, an LF check, a
+  test that `banner.sh` stays silent and inert when sourced, a 78-column and
+  strict-ASCII assertion on the rendered banner, and a branch-by-branch exit
+  code smoke test. It runs on Linux on purpose: a shell script developed
+  against Git Bash can look perfect and still trip over a GNU/BSD difference.
+
+### Not added, on purpose
+
+- **`--share` is absent from the shell installer** and exits 2 with an
+  explanation rather than doing something approximate. It anonymises text on
+  its way to a PUBLIC issue, and the PowerShell implementation leans on
+  lookbehind assertions and a deliberate case-sensitive/insensitive split that
+  POSIX tools do not have; a shell version would be a re-implementation whose
+  output differs in ways nobody could enumerate. Two different privacy floors
+  depending on which OS the command was run from is worse than one platform
+  not having the feature. It becomes available when both implementations can
+  be run against one shared corpus and produce byte-identical output - that
+  corpus is the precondition, not a follow-up.
+
+### Fixed
+
+- **`-Update` after a shell install moved the entire deployment to `*.bak`.**
+  `orchestra.sh` writes `.orchestra-manifest.txt` with forward slashes and the
+  PowerShell side compared those against its own backslash paths, so every
+  single entry looked like a file that had left the distribution: eleven
+  agents and skills renamed away, and a warning that eleven files had been
+  dropped. Both installers now normalise the separator before comparing, in
+  both directions. Caught by installing with one and updating with the other -
+  which is exactly what a person with a Mac and a PC will do.
+
+### Verified
+
+- The rule parser is a port, not a rewrite: `orchestra.sh` and the original
+  PowerShell functions were run against one corpus of edge cases - markers in
+  four spellings and any case, three- versus four-space indents, tab indents,
+  horizontal rules, duplicate keys differing only in case and spacing - and
+  produce identical output, line for line.
+- Round trip both ways: install with either installer, update and read status
+  with the other. No spurious backups, no false orphans.
+
 ## 1.11.0
 
 A first install introduces itself. Everything else stays as quiet as it was.

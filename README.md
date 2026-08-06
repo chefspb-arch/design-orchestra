@@ -32,8 +32,8 @@ read, and there is no switch to change that.
 
 - Claude Code (Pro/Max/Team subscription) - https://claude.com/claude-code
 - Figma MCP (remote), a Dev or Full seat on a paid Figma plan
-- Windows PowerShell 5.1+ (installer only; the agents themselves are plain
-  markdown and work anywhere)
+- Windows PowerShell 5.1+, **or** any POSIX shell on macOS and Linux
+  (installer only; the agents themselves are plain markdown and work anywhere)
 
 ## Install
 
@@ -53,6 +53,30 @@ read, and there is no switch to change that.
 3. Restart PowerShell.
 
 To remove the command: `.\install.ps1 -Uninstall`.
+
+### macOS and Linux
+
+Use `dist/orchestra.sh` instead. There is no registration script yet, so put
+it on your PATH yourself - a symlink is enough, and the installer resolves the
+link to find its own payload:
+
+```sh
+chmod +x dist/orchestra.sh
+mkdir -p ~/.local/bin
+ln -s "$PWD/dist/orchestra.sh" ~/.local/bin/orchestra
+```
+
+Then `orchestra`, `orchestra --update`, `orchestra --status`,
+`orchestra --promote`, `orchestra --no-banner` - the same commands with the
+usual double-dash spelling. Your shared seed lives in
+`${XDG_DATA_HOME:-~/.local/share}/design-orchestra/seed`.
+
+**`--share` is not available here - it is Windows-only for now.** It prepares
+text for a public issue, and its anonymisation cannot be reproduced faithfully
+with POSIX tools; two different privacy floors depending on which OS you ran
+the command from would be worse than one platform not having the feature. The
+shell installer says so and exits non-zero rather than doing something
+approximate.
 
 ## First run
 
@@ -95,7 +119,7 @@ In PowerShell:
 | `orchestra -Status` | version, brain state, where your seed lives |
 | `orchestra -Update` | update the agents to the distribution version; brain, passport and specs are untouched, changed files are kept as `*.bak` |
 | `orchestra -Promote` | this project's personal rules -> your shared seed (new projects only) |
-| `orchestra -Share` | propose marked rules **and this cycle's portable findings** to the public seed: per-item confirmation, findings anonymised before you see them, `PROJECT.md` never read, you submit by hand |
+| `orchestra -Share` | propose marked rules **and this cycle's portable findings** to the public seed: per-item confirmation, findings anonymised before you see them, `PROJECT.md` never read, you submit by hand. **Windows only** - see [macOS and Linux](#macos-and-linux) |
 | `orchestra -NoBanner` | install without the ASCII banner. The banner only ever appears on a first install, so this is for scripted installs that want the result and nothing else |
 
 Inside Claude Code, from the project folder:
