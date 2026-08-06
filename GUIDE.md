@@ -1,5 +1,5 @@
 # The orchestra: user manual
-Version 1.10.0
+Version 1.11.0
 
 ---
 
@@ -49,6 +49,7 @@ Maintenance commands:
 | `orchestra -Update` | update the agents to the distribution version; brain, passport and specs are untouched. Files you edited are not lost: before being overwritten they are copied to `<file>.bak` and listed |
 | `orchestra -Promote` | this project's personal rules -> your shared seed (`%APPDATA%\design-orchestra\seed\`); new projects only |
 | `orchestra -Share` | propose marked rules and this cycle's portable findings to the public seed: confirmation per item, findings anonymised before you see them, `PROJECT.md` never read, submitted by hand. See section 6c |
+| `orchestra -NoBanner` | install without the ASCII banner. The banner appears on a **first install only** - never on `-Status`, `-Update`, `-Promote`, `-Share` or a repeat run - so this switch matters for scripted installs, or if you simply want the output shorter. Colour already turns itself off when `NO_COLOR` is set, when `TERM=dumb`, or when the output is piped to a file |
 
 ---
 

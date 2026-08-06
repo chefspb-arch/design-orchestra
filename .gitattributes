@@ -4,6 +4,12 @@
 *.ps1  -text
 *.psd1 -text
 
+# Shell scripts are LF ALWAYS, checkout included - the opposite of the .ps1
+# rule above. A CRLF checkout on Windows is not a cosmetic difference there:
+# the \r becomes part of every command and string, and the script dies on the
+# first line with an unreadable error naming a character you cannot see.
+*.sh   text eol=lf
+
 # Docs and agent definitions are plain text, LF in the repository.
 *.md   text eol=lf
 *.json text eol=lf

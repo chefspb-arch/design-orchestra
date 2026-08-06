@@ -19,6 +19,12 @@
 #                            phone numbers), and anonymisation is a floor, not
 #                            a guarantee - so there is no switch to opt into it
 #   orchestra -Status      - what is installed and at which version
+#   orchestra -NoBanner    - install without the ASCII banner. The banner is
+#                            printed on a FIRST install only - never on
+#                            -Status, -Update, -Promote or -Share, and never on
+#                            a repeat run - so this switch is for that one
+#                            case, and for scripted installs that want nothing
+#                            but the result
 #
 # Every project gets its OWN copy of the agents and its OWN brain (./brain).
 # Projects cannot see each other. Updating the seed never changes old projects.
@@ -38,7 +44,14 @@ param(
   [switch]$Update,
   [switch]$Promote,
   [switch]$Share,
-  [switch]$Status
+  [switch]$Status,
+  # The bash port spells this --no-banner. PowerShell cannot: with
+  # [CmdletBinding()] a double dash is not a parameter prefix at all, so
+  # `--no-banner` would be a positional argument and the script would reject it
+  # outright. Here it is -NoBanner; the alias keeps -no-banner working too, for
+  # whoever comes from the shell side out of habit.
+  [Alias('no-banner')]
+  [switch]$NoBanner
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,6 +115,56 @@ if ($projFull -eq $repoFull -or
   Write-Host "You are inside the orchestra repository ($repoFull)." -ForegroundColor Red
   Write-Host "Go to your own project folder and run orchestra there." -ForegroundColor Red
   exit 1
+}
+
+# --------------------------------------------------------------- banner ----
+
+# Strict ASCII, and every line inside 78 columns. Two hard reasons, both learned
+# from a console rather than guessed: PowerShell 5.1 under the default raster
+# fonts renders Unicode box drawing as mojibake, and a line wider than the
+# window wraps - a banner that wraps mid-frame reads as a broken install, which
+# is the first thing a new user would see.
+$BannerArt = @(
+  '  .--------------------------------------------------------------.',
+  '  | [o][o][o]                                                    |',
+  '  +----------+---------------------------------------------------+',
+  '  | ######## |  +---------------+  +--------------------------+  |',
+  '  | ######## |  |               |  --------------------------    |',
+  '  | ######## |  +---------------+  -----------------------       |',
+  '  +----------+---------------------------------------------------+'
+)
+
+function Test-BannerColor {
+  # https://no-color.org - any non-empty value means "no colour".
+  if ($env:NO_COLOR) { return $false }
+  if ($env:TERM -eq 'dumb') { return $false }
+  # Redirected output is a file or a pipe: colour there is pointless at best.
+  # No guard around the call: IsOutputRedirected has been on System.Console
+  # since .NET 4.5, and Windows PowerShell 5.1 cannot run on anything older.
+  if ([Console]::IsOutputRedirected) { return $false }
+  # Hosts without RawUI (remoting, embedders) cannot colour at all.
+  if (-not $Host.UI -or -not $Host.UI.RawUI) { return $false }
+  return $true
+}
+
+function Show-Banner {
+  # -NoBanner is checked by the caller, not here: suppression is a decision
+  # about the run, and keeping it at the single call site means the banner
+  # cannot leak into a mode that simply forgot to ask.
+  $color = Test-BannerColor
+  # The scheme is dropped to keep the line inside 78 columns.
+  $repo  = (Get-RepoUrl) -replace '^https?://', ''
+  $tag   = "  Design Orchestra v$ver  -  $repo"
+  if ($tag.Length -le 78) {
+    $lines = @('') + $BannerArt + @('', $tag, '')
+  } else {
+    # A custom $env:DESIGN_ORCHESTRA_REPO can be any length. Give the address
+    # its own line instead of letting it wrap through the middle of the version.
+    $lines = @('') + $BannerArt + @('', "  Design Orchestra v$ver", "  $repo", '')
+  }
+  foreach ($l in $lines) {
+    if ($color) { Write-Host $l -ForegroundColor Green } else { Write-Host $l }
+  }
 }
 
 # -------------------------------------------------------------- helpers ----
@@ -611,6 +674,12 @@ if ($installed -and -not $Update) {
   Write-Host "Orchestra is already installed (v$installed). To update the agents: orchestra -Update" -ForegroundColor Yellow
   exit 0
 }
+
+# First install only. -Status, -Update, -Promote and -Share all leave the script
+# above this point, and a repeat `orchestra` exits on the line right above: none
+# of them is a first impression, all of them are someone waiting for one useful
+# line of output.
+if (-not $Update -and -not $NoBanner) { Show-Banner }
 
 # --- Agents and skills: always copied (this IS the update) ---
 # Copied file by file along relative paths: Copy-Item -Recurse into a missing

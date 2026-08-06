@@ -4,6 +4,56 @@ Release history of the orchestra. Loosely follows Keep a Changelog.
 (Not to be confused with `CHANGELOG-DESIGN.md`, which is created inside
 your project and tracks mockup versions rather than the tool.)
 
+## 1.11.0
+
+A first install introduces itself. Everything else stays as quiet as it was.
+
+The banner is deliberately narrow in scope: it appears on a FIRST install and
+nowhere else. `-Status`, `-Update`, `-Promote`, `-Share` and a repeat run are
+all somebody waiting for one useful line, and an ASCII frame above that line
+costs them a screenful of scrollback for nothing.
+
+### Added
+
+- **An ASCII banner on first install** - a wireframe window, the shape the
+  orchestra actually works on. Strict ASCII, 66 columns of art under a 71
+  column signature line, 11 lines including its blank margins. Both limits are
+  load-bearing: PowerShell 5.1 under the default raster fonts renders Unicode
+  box drawing as mojibake, and a line wider than the terminal wraps - a banner
+  that wraps mid-frame reads as a broken install, which is a poor thing for a
+  first impression to be.
+- **`-NoBanner`** suppresses it, for scripted installs that want the result
+  and nothing else. The shell port will spell this `--no-banner`; PowerShell
+  cannot, because under `[CmdletBinding()]` a double dash is not a parameter
+  prefix at all and the script would reject it as a positional argument. The
+  alias `-no-banner` is accepted for whoever arrives from the shell side.
+- **Colour degrades instead of assuming.** Green via `Write-Host`, but only
+  when it can land somewhere that renders it: `NO_COLOR` (any non-empty value,
+  per no-color.org), `TERM=dumb`, redirected output and hosts without a
+  `RawUI` each fall back to plain text. Verified by reading the rendered frame
+  back out of a real 78 column screen buffer, in both directions.
+- **`dist/banner.sh`** - the same art for the shell installer that does not
+  exist yet. It is a library, not a script: sourcing it prints nothing, sets
+  no shell options, installs no traps and touches no globals, and sourcing it
+  twice is a no-op the second time. Suppression is left to the caller rather
+  than parsed inside, so the banner cannot leak into a mode that simply forgot
+  to ask. Syntax checked under `sh`, `bash` and `dash`.
+
+### Fixed
+
+- **`.gitattributes` had no rule for `*.sh`**, so a shell script committed
+  from Windows would arrive with CRLF line endings and die on its first line
+  with an error naming a character you cannot see. Shell scripts are now LF on
+  checkout too - the opposite of the `.ps1` rule, and for the same reason:
+  the encoding is part of whether the file runs at all.
+
+### Known limits
+
+- A custom `DESIGN_ORCHESTRA_REPO` longer than roughly 48 characters pushes
+  the address onto its own line, and one longer than 78 still wraps. A URL
+  cannot be broken and must not be truncated - half an address is worse than
+  a wrapped one. The art itself is unaffected in every case.
+
 ## 1.10.0
 
 `-Share` learns to offer this cycle's findings, not just rules. The rules

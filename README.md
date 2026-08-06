@@ -96,6 +96,7 @@ In PowerShell:
 | `orchestra -Update` | update the agents to the distribution version; brain, passport and specs are untouched, changed files are kept as `*.bak` |
 | `orchestra -Promote` | this project's personal rules -> your shared seed (new projects only) |
 | `orchestra -Share` | propose marked rules **and this cycle's portable findings** to the public seed: per-item confirmation, findings anonymised before you see them, `PROJECT.md` never read, you submit by hand |
+| `orchestra -NoBanner` | install without the ASCII banner. The banner only ever appears on a first install, so this is for scripted installs that want the result and nothing else |
 
 Inside Claude Code, from the project folder:
 
