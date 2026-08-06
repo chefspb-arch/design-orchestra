@@ -21,6 +21,33 @@ The same exit-code bug as 1.8.1, one layer up: in the CI step itself.
   `exit`, so GitHub's epilogue was never simulated. The runner now appends the
   same epilogue GitHub does and asserts the exit code of every step.
 
+### Documentation
+
+Five gaps found by walking the README as a first-time user on a clean
+machine. No code changes, so the version stays at 1.8.2.
+
+- **`/log` was undocumented.** The skill ships and CI checks that it
+  deploys, but the README mentioned only `/feature`, `/concept` and
+  `/foundation` - so the one command that feeds out-of-cycle edits into
+  the learning loop was invisible. Now in "How it works" and in a new
+  table of in-Claude commands.
+- **"Where things live" did not match a fresh install.** It promised
+  `PROJECT.md` and `CHANGELOG-DESIGN.md`, which `orchestra` does not
+  create (the agents write them on the first run), and omitted
+  `AGENTS.md`, `.orchestra-version` and `.orchestra-manifest.txt`, which
+  it does. The seed is likewise marked as appearing only after
+  `-Promote` - `orchestra -Status` was already more honest than the
+  README here.
+- **No word that an open Claude Code session must be restarted.** Skills
+  are read at session start, so running `orchestra` next to a live
+  session leaves `/feature` unknown, with nothing to explain it.
+- **`git clone` was not offered.** Install step 1 listed only
+  Code -> Download ZIP.
+- **The Figma prerequisites were a bare list under Requirements**, with
+  no check to run before starting. A miss - unpublished library, no Dev
+  seat, MCP not connected - only surfaced mid-run. First run now opens
+  with a five-point preflight checklist.
+
 ## 1.8.1
 
 Exit codes. CI's install smoke test failed even though the install itself

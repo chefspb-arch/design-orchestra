@@ -35,9 +35,12 @@ form - you press the button.
 
 ## Install
 
-1. Download the repository (Code -> Download ZIP) and unpack it anywhere.
-   The folder name does not matter.
-2. In PowerShell, from the root of the unpacked folder:
+1. Get the repository - either way works, the folder name does not matter:
+   ```powershell
+   git clone https://github.com/chefspb-arch/design-orchestra.git
+   ```
+   or Code -> Download ZIP and unpack it anywhere.
+2. In PowerShell, from the root of the repository folder:
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\install.ps1
    ```
@@ -51,6 +54,16 @@ To remove the command: `.\install.ps1 -Uninstall`.
 
 ## First run
 
+Before the first `/feature`, check the Figma side - the installer does not
+verify any of it, and a miss only surfaces halfway through a run:
+
+- [ ] Figma MCP (remote) is connected in Claude Code and authorised
+- [ ] your Figma account has a Dev or Full seat on a paid plan
+- [ ] the component library is published (Assets -> Publish)
+- [ ] the library is enabled in the working file
+- [ ] for `get_variable_defs`: the kit file is open in the Figma desktop
+      app with a frame selected
+
 ```powershell
 cd path\to\your\project
 orchestra                     # isolated install into the project
@@ -60,9 +73,16 @@ Inside Claude Code:
 ```
 /feature specs/your-spec.md
 ```
+
+**If Claude Code was already running when you ran `orchestra`, restart it**
+(`/exit`, then `claude`). Skills and agents are read at session start, so
+in an open session `/feature` stays unknown until you restart.
+
 Full manual: [GUIDE.md](GUIDE.md).
 
 ## Commands
+
+In PowerShell:
 
 | Command | What it does |
 |---|---|
@@ -72,6 +92,15 @@ Full manual: [GUIDE.md](GUIDE.md).
 | `orchestra -Promote` | this project's personal rules -> your shared seed (new projects only) |
 | `orchestra -Share` | propose rules to the public seed: per-rule confirmation, you submit by hand |
 
+Inside Claude Code, from the project folder:
+
+| Command | What it does |
+|---|---|
+| `/feature specs/name.md` | the full chain: spec -> mockups, with two decision gates |
+| `/concept` | visual directions for a greenfield project |
+| `/foundation` | design system foundation from a reference |
+| `/log <what you changed and why>` | record an edit you made by hand, outside the `/feature` cycle - without it that edit never reaches the learning loop |
+
 ## Where things live
 
 ```
@@ -80,12 +109,20 @@ Full manual: [GUIDE.md](GUIDE.md).
   dist/init-orchestra.ps1
   dist/payload/           <- what gets deployed into projects
 
-<your project>/
+<your project>/           <- what `orchestra` creates:
   .claude/agents|skills/  <- your copy of the agents (overwritten by -Update)
   brain/                  <- THIS project's brain
-  specs/, PROJECT.md, CHANGELOG-DESIGN.md
+  specs/                  <- your specs, plus _template.md
+  AGENTS.md               <- project description for non-Claude agents
+  .orchestra-version      <- installed version
+  .orchestra-manifest.txt <- what was deployed; -Update reads it
+
+<your project>/           <- and what the agents add on the first run:
+  PROJECT.md              <- the Scout writes it during the first /feature
+  CHANGELOG-DESIGN.md     <- appears with the first built version
 
 %APPDATA%\design-orchestra\seed\   <- your shared seed across projects
+                                      (appears after the first -Promote)
 ```
 
 The user seed sits outside the repository on purpose: otherwise `-Promote`
@@ -125,8 +162,10 @@ The Conductor (the `/feature` skill) runs a chain of six agents: the Scout
 gates), the UX Advisor (decisions justified against precedents), the Builder
 (the only one that writes to Figma), the Respondent (panel, blind A/B) and
 the Chronicler (journal -> rules -> learning metric). Plus `/concept`
-(visual directions for a greenfield project) and `/foundation` (design
-system foundation from a reference). Versioning: version pages in Figma
+(visual directions for a greenfield project), `/foundation` (design
+system foundation from a reference) and `/log` (report an edit you made
+by hand after the cycle closed - it is the only way such an edit reaches
+the Chronicler and turns into a rule). Versioning: version pages in Figma
 plus CHANGELOG-DESIGN.md.
 
 ## Contributing
