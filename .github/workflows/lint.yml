@@ -96,6 +96,7 @@ jobs:
           Invoke-Orchestra "install" 0
           $need = @(
             ".claude\agents\builder.md",
+            ".claude\skills\start\SKILL.md",
             ".claude\skills\feature\SKILL.md",
             ".claude\skills\concept\SKILL.md",
             ".claude\skills\foundation\SKILL.md",
@@ -112,6 +113,16 @@ jobs:
             $missing | ForEach-Object { Write-Host "  $_" }
             exit 1
           }
+          # Count as well as name the skills: the payload is enumerated
+          # dynamically, so a skill added to dist/ but not to $need above would
+          # otherwise ship untested.
+          $srcSkills = @(Get-ChildItem "$env:GITHUB_WORKSPACE\dist\payload\.claude\skills" -Directory).Count
+          $dstSkills = @(Get-ChildItem (Join-Path $proj ".claude\skills") -Directory).Count
+          if ($dstSkills -ne $srcSkills) {
+            Write-Host "Deployed $dstSkills skill(s), distribution has $srcSkills" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "  skills deployed -> $dstSkills (ok)"
           # The same class of bug applies to every branch, so check them all.
           # Expectations must not depend on $DefaultRepoUrl, which a fork edits:
           # the repo URL is pinned per case through the environment variable.

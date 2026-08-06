@@ -487,7 +487,8 @@ if ($Update) {
   Write-Host "Next:" -ForegroundColor Yellow
   Write-Host "  1. Put your spec in specs\  (template: specs\_template.md)"
   Write-Host "  2. claude"
-  Write-Host "  3. /feature specs/name.md   - the Scout will create PROJECT.md"
+  Write-Host "  3. /start                   - interactive entry point, asks what you want to do"
+  Write-Host "     or /feature specs/name.md if you already know the mode" -ForegroundColor DarkGray
 }
 
 # Every path out of this script MUST end in an explicit exit. Falling off the
