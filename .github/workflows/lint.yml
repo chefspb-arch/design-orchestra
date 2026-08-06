@@ -10,18 +10,119 @@ jobs:
   psscriptanalyzer:
     name: PSScriptAnalyzer
     runs-on: windows-latest
+    env:
+      # Pinned deliberately. Floating to whatever PSGallery serves that morning
+      # means a new analyzer release can turn main red with nothing in the diff
+      # to explain it. Bumping is a one-line edit here and the cache key follows
+      # it automatically, so the upgrade arrives as a reviewable commit.
+      PSSA_VERSION: '1.25.0'
+    # The module is saved under RUNNER_TEMP, not the workspace: anything under
+    # the checkout would be walked by `Invoke-ScriptAnalyzer -Path . -Recurse`
+    # below, which would then analyse the analyser's own hundreds of .ps1/.psd1
+    # files. RUNNER_TEMP is also account-name independent, unlike the
+    # CurrentUser module path, so the cache key stays stable.
+    # $env:RUNNER_TEMP in the scripts, ${{ runner.temp }} only in `with:` - the
+    # runner context is NOT available in jobs.<id>.env and would expand to "".
     steps:
       - uses: actions/checkout@v4
 
+      - name: Restore PSScriptAnalyzer from cache
+        id: pssa-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\pssa
+          key: pssa-${{ runner.os }}-${{ env.PSSA_VERSION }}
+
       - name: Install PSScriptAnalyzer
+        if: steps.pssa-cache.outputs.cache-hit != 'true'
         shell: powershell
         run: |
-          Set-PSRepository PSGallery -InstallationPolicy Trusted
-          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          # Windows PowerShell 5.1 still negotiates TLS 1.0/1.1 by default,
+          # while PSGallery has required 1.2 for years. The mismatch surfaces as
+          # an opaque "Unable to connect to the remote server" - which is how a
+          # build with a clean diff went red on 2026-08-06.
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+          # A typo in the pin is not a network problem. Catch it before the
+          # retry loop, or three attempts burn 15s of backoff and the failure
+          # message then blames PSGallery for a one-character mistake.
+          $parsed = $null
+          if (-not [version]::TryParse($env:PSSA_VERSION, [ref]$parsed)) {
+            Write-Host "PSSA_VERSION is '$env:PSSA_VERSION', which is not a version number." -ForegroundColor Red
+            Write-Host "Fix the pin in .github/workflows/lint.yml. This is not a network failure." -ForegroundColor Red
+            exit 1
+          }
+
+          $dir = Join-Path $env:RUNNER_TEMP "pssa"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+
+          # Save-Module, not Install-Module: it drops the module at a path we
+          # choose, which is what makes the cache key independent of the runner
+          # account name.
+          $ok   = $false
+          $last = $null
+          foreach ($attempt in 1..3) {
+            try {
+              if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction Stop | Out-Null
+              }
+              Set-PSRepository PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+              Save-Module -Name PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION `
+                          -Repository PSGallery -Path $dir -Force -ErrorAction Stop
+              $ok = $true
+              Write-Host "PSScriptAnalyzer $env:PSSA_VERSION downloaded (attempt $attempt)" -ForegroundColor Green
+              break
+            } catch {
+              $last = $_
+              Write-Host "attempt $attempt/3 failed: $($_.Exception.Message)" -ForegroundColor Yellow
+              # FullyQualifiedErrorId, never the message text: error messages are
+              # localised (this was written against a runner whose PowerShell
+              # answers in Russian) and matching English words there silently
+              # takes the wrong branch.
+              if ($_.FullyQualifiedErrorId -like 'NoMatchFoundForCriteria*') {
+                Write-Host "  the gallery answered - it has no such version; not retrying" -ForegroundColor DarkGray
+                break
+              }
+              if ($attempt -lt 3) {
+                $wait = 5 * $attempt
+                Write-Host "  retrying in $wait s..." -ForegroundColor DarkGray
+                Start-Sleep -Seconds $wait
+              }
+            }
+          }
+
+          if (-not $ok) {
+            Write-Host ""
+            Write-Host "Could not download PSScriptAnalyzer $env:PSSA_VERSION from PSGallery." -ForegroundColor Red
+            Write-Host "Last error: $($last.Exception.Message)" -ForegroundColor Red
+            Write-Host ""
+            if ($last.FullyQualifiedErrorId -like 'NoMatchFoundForCriteria*') {
+              Write-Host "PSGallery answered but has no version $env:PSSA_VERSION of PSScriptAnalyzer." -ForegroundColor Yellow
+              Write-Host "That is a wrong pin, not an outage. Fix PSSA_VERSION in" -ForegroundColor Yellow
+              Write-Host ".github/workflows/lint.yml; re-running the job will not help." -ForegroundColor Yellow
+            } else {
+              Write-Host "This step is the only one in the whole workflow that reaches the network." -ForegroundColor Yellow
+              Write-Host "A failure here is almost always PSGallery or the runner's connectivity," -ForegroundColor Yellow
+              Write-Host "NOT the code in this pull request - nothing in the diff can cause it." -ForegroundColor Yellow
+              Write-Host "Check https://status.powershellgallery.com and re-run the job before" -ForegroundColor Yellow
+              Write-Host "looking for anything in the changes." -ForegroundColor Yellow
+            }
+            exit 1
+          }
+          exit 0
 
       - name: Analyze
         shell: powershell
         run: |
+          $mod = Join-Path $env:RUNNER_TEMP "pssa\PSScriptAnalyzer\$env:PSSA_VERSION\PSScriptAnalyzer.psd1"
+          if (-not (Test-Path $mod)) {
+            Write-Host "PSScriptAnalyzer $env:PSSA_VERSION is not at $mod." -ForegroundColor Red
+            Write-Host "The cache restored something unexpected - re-run with the cache cleared." -ForegroundColor Red
+            exit 1
+          }
+          Import-Module $mod -Force
+          Write-Host "Using PSScriptAnalyzer $((Get-Module PSScriptAnalyzer).Version)"
+
           $r = Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\PSScriptAnalyzerSettings.psd1
           if ($r) {
             $r | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
