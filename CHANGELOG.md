@@ -4,6 +4,35 @@ Release history of the orchestra. Loosely follows Keep a Changelog.
 (Not to be confused with `CHANGELOG-DESIGN.md`, which is created inside
 your project and tracks mockup versions rather than the tool.)
 
+## 1.8.1
+
+Exit codes. CI's install smoke test failed even though the install itself
+succeeded.
+
+### Fixed
+
+- **The install/update path fell off the end of `dist/init-orchestra.ps1`
+  without an explicit `exit`.** A script that ends that way leaves
+  `$LASTEXITCODE` untouched in the caller: `$null` in a fresh process (what
+  CI hit - hence the empty `install returned` message), or a stale code from
+  some earlier command in a longer session. In a local session a fully
+  successful `-Update` was observed returning `1`, inherited from a previous
+  `-Share`. Every branch of both scripts now ends in an explicit `exit`.
+- The same omission in `install.ps1`: the registration path had no `exit 0`.
+- **The smoke test only covered two commands.** It now checks the exit code
+  of every branch - install, `-Update`, re-run, `-Status`, `-Promote`,
+  `-Share` with and without a valid repo, and the in-repo guard - and it
+  poisons `$LASTEXITCODE` before each call, so a missing `exit` is reported
+  as such instead of silently inheriting a passing `0`.
+- The smoke test's expectations no longer depend on `$DefaultRepoUrl`. It
+  used to assume the placeholder value, so CI would have started failing for
+  anyone who set a real repository URL. The URL is now pinned per case
+  through `DESIGN_ORCHESTRA_REPO`.
+- The smoke-test helper splatted an array of strings, which silently fails to
+  bind switch parameters: `-Update` and friends arrived as dropped positional
+  arguments, with no error, so every case actually re-tested the default
+  branch. It splats a hashtable now.
+
 ## 1.8.0
 
 First public release. Pre-publication audit: security and repository

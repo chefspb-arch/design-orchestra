@@ -489,3 +489,10 @@ if ($Update) {
   Write-Host "  2. claude"
   Write-Host "  3. /feature specs/name.md   - the Scout will create PROJECT.md"
 }
+
+# Every path out of this script MUST end in an explicit exit. Falling off the
+# end leaves $LASTEXITCODE untouched in the caller: $null in a fresh process,
+# or a stale code left by some earlier command in a long session. A caller
+# that checks the exit code then reads a successful install as a failure -
+# which is exactly what broke CI.
+exit 0

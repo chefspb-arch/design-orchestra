@@ -70,8 +70,27 @@ jobs:
           $proj = Join-Path $env:RUNNER_TEMP "proj"
           New-Item -ItemType Directory -Force $proj | Out-Null
           Push-Location $proj
-          & "$env:GITHUB_WORKSPACE\dist\init-orchestra.ps1"
-          if ($LASTEXITCODE -ne 0) { throw "install returned $LASTEXITCODE" }
+          $script = "$env:GITHUB_WORKSPACE\dist\init-orchestra.ps1"
+
+          # Every branch must end in an explicit `exit`. Without one,
+          # $LASTEXITCODE keeps whatever it held before the call - $null in a
+          # fresh process, or a stale code from an earlier command. This helper
+          # poisons the variable first, so a missing exit shows up as <unset>
+          # instead of silently inheriting a passing 0.
+          # Splat a HASHTABLE, never an array: array splatting silently fails to
+          # bind switch parameters (-Update arrives as a dropped positional arg,
+          # with no error), so every case would quietly test the default branch.
+          function Invoke-Orchestra {
+            param([string]$Label, [int]$Expected, [hashtable]$ScriptArgs = @{})
+            $global:LASTEXITCODE = 99
+            & $script @ScriptArgs | Out-Null
+            $code = $LASTEXITCODE
+            if ($code -eq 99) { throw "$Label left no exit code (branch falls off the end of the script)" }
+            if ($code -ne $Expected) { throw "$Label returned $code, expected $Expected" }
+            Write-Host "  $Label -> $code (ok)"
+          }
+
+          Invoke-Orchestra "install" 0
           $need = @(
             ".claude\agents\builder.md",
             ".claude\skills\feature\SKILL.md",
@@ -90,7 +109,26 @@ jobs:
             $missing | ForEach-Object { Write-Host "  $_" }
             exit 1
           }
-          & "$env:GITHUB_WORKSPACE\dist\init-orchestra.ps1" -Update
-          if ($LASTEXITCODE -ne 0) { throw "-Update returned $LASTEXITCODE" }
+          # The same class of bug applies to every branch, so check them all.
+          # Expectations must not depend on $DefaultRepoUrl, which a fork edits:
+          # the repo URL is pinned per case through the environment variable.
+          $env:DESIGN_ORCHESTRA_HOME = Join-Path $env:RUNNER_TEMP "seed"
+          $env:DESIGN_ORCHESTRA_REPO = "https://github.com/example/design-orchestra"
+
+          Invoke-Orchestra "-Update"  0 @{ Update  = $true }
+          Invoke-Orchestra "re-run"   0
+          Invoke-Orchestra "-Status"  0 @{ Status  = $true }
+          Invoke-Orchestra "-Promote" 0 @{ Promote = $true }
+          # No rules are marked in the seed, so -Share must bow out cleanly.
+          Invoke-Orchestra "-Share (no candidates)" 0 @{ Share = $true }
+
+          $env:DESIGN_ORCHESTRA_REPO = "http://not-https.example/x"
+          Invoke-Orchestra "-Share (non-https repo rejected)" 1 @{ Share = $true }
+          Remove-Item Env:\DESIGN_ORCHESTRA_REPO
+
           Pop-Location
-          Write-Host "Install and update both succeeded" -ForegroundColor Green
+          Push-Location $env:GITHUB_WORKSPACE
+          Invoke-Orchestra "guard: refuses to run inside the repo" 1
+          Pop-Location
+
+          Write-Host "All exit codes are explicit and correct" -ForegroundColor Green

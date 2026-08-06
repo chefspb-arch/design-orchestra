@@ -83,3 +83,8 @@ if ($policy -eq "Restricted" -or $policy -eq "Undefined") {
   Write-Host "Allow local scripts (once):" -ForegroundColor Yellow
   Write-Host "  Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
 }
+
+# Explicit exit for the same reason as in dist/init-orchestra.ps1: without it
+# $LASTEXITCODE keeps whatever the caller had before, and success looks like
+# failure.
+exit 0

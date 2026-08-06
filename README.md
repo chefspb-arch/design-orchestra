@@ -4,8 +4,6 @@ A chain of Claude Code agents that builds Figma mockups from a written
 spec - with review gates, a justification behind every decision, and a
 memory that learns from your edits.
 
-
-
 ## What it is
 
 You drop a spec into a folder, run one command, and a chain of specialised
