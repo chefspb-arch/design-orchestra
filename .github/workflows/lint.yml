@@ -29,6 +29,7 @@ jobs:
             exit 1
           }
           Write-Host "PSScriptAnalyzer: clean" -ForegroundColor Green
+          exit 0
 
   encoding:
     name: Encoding and structure
@@ -52,6 +53,7 @@ jobs:
             exit 1
           }
           Write-Host "All scripts are UTF-8 with BOM" -ForegroundColor Green
+          exit 0
 
       - name: VERSION matches CHANGELOG
         shell: powershell
@@ -63,6 +65,7 @@ jobs:
             exit 1
           }
           Write-Host "VERSION $v matches CHANGELOG" -ForegroundColor Green
+          exit 0
 
       - name: Install smoke test on an empty folder
         shell: powershell
@@ -132,3 +135,10 @@ jobs:
           Pop-Location
 
           Write-Host "All exit codes are explicit and correct" -ForegroundColor Green
+
+          # GitHub appends `if (Test-Path variable:\LASTEXITCODE) { exit $LASTEXITCODE }`
+          # to every `shell: powershell` block. The guard case above deliberately
+          # returns 1, so without this line the step inherits that 1 and fails even
+          # though every assertion passed. Same bug this release fixes in the
+          # installer - it just moved up one layer.
+          exit 0

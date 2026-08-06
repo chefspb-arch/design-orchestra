@@ -4,6 +4,23 @@ Release history of the orchestra. Loosely follows Keep a Changelog.
 (Not to be confused with `CHANGELOG-DESIGN.md`, which is created inside
 your project and tracks mockup versions rather than the tool.)
 
+## 1.8.2
+
+The same exit-code bug as 1.8.1, one layer up: in the CI step itself.
+
+### Fixed
+
+- **Workflow steps inherited a stale exit code.** For `shell: powershell`,
+  GitHub appends `if (Test-Path variable:\LASTEXITCODE) { exit $LASTEXITCODE }`
+  to every `run` block. The smoke test's last case is the in-repo guard, which
+  deliberately returns 1, so the block ended with `$LASTEXITCODE = 1` and the
+  step failed even though all eight assertions had printed `(ok)`. Every `run`
+  block now ends in an explicit `exit 0`.
+- **The local CI runner could not have caught it.** It invoked each block with
+  `powershell -File`, which returns 0 when a script ends without an explicit
+  `exit`, so GitHub's epilogue was never simulated. The runner now appends the
+  same epilogue GitHub does and asserts the exit code of every step.
+
 ## 1.8.1
 
 Exit codes. CI's install smoke test failed even though the install itself
