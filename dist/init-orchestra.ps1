@@ -710,9 +710,15 @@ $orphans = @()
 if (Test-Path $manifestPath) {
   foreach ($old in (Get-Content $manifestPath -Encoding UTF8)) {
     if ($old.Trim() -eq "") { continue }
-    if ($newRel -contains $old) { continue }
-    $p = Join-Path $proj $old
-    if (Test-Path $p) { Move-Item -Force $p "$p.bak"; $orphans += $old }
+    # orchestra.sh writes this file with forward slashes. Compared raw, every
+    # single entry then looks like a file that has left the distribution, so
+    # an -Update after a shell install moved the WHOLE deployment to *.bak and
+    # announced that eleven files had been dropped. The separator is not part
+    # of the identity of the path, so it is normalised before comparing.
+    $oldNorm = $old.Replace('/', '\')
+    if ($newRel -contains $oldNorm) { continue }
+    $p = Join-Path $proj $oldNorm
+    if (Test-Path $p) { Move-Item -Force $p "$p.bak"; $orphans += $oldNorm }
   }
 }
 Set-Content -Path $manifestPath -Value $newRel -Encoding UTF8

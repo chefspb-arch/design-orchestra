@@ -1,5 +1,5 @@
 # The orchestra: user manual
-Version 1.11.0
+Version 1.12.0
 
 ---
 
@@ -25,6 +25,32 @@ Version 1.11.0
 
 To take the command back out: `.\install.ps1 -Uninstall`.
 
+### 1a. macOS and Linux
+
+The shell installer is `dist/orchestra.sh`. There is no registration script
+for it yet, so put it on your PATH by hand - a symlink is enough, because the
+installer resolves the link before looking for its payload:
+
+```sh
+chmod +x dist/orchestra.sh
+mkdir -p ~/.local/bin
+ln -s "$PWD/dist/orchestra.sh" ~/.local/bin/orchestra
+```
+
+The options are spelled with a double dash: `--update`, `--status`,
+`--promote`, `--no-banner`. Your shared seed lives in
+`${XDG_DATA_HOME:-~/.local/share}/design-orchestra/seed` rather than under
+`%APPDATA%`.
+
+**`-Share` has no shell equivalent - it is Windows-only for now.** The reason
+is in section 6c: it prepares text for a public issue, and its anonymisation
+relies on lookbehind and on a deliberate case-sensitivity split that POSIX
+tools do not have. A shell version would be a re-implementation whose output
+differs in ways nobody could enumerate, and two different privacy floors
+depending on which OS you happened to use is worse than one platform not
+having the feature. `orchestra.sh --share` says exactly that and exits
+non-zero.
+
 Requirements: Claude Code + Figma MCP (remote), a Dev or Full seat on a
 paid Figma plan.
 
@@ -48,7 +74,7 @@ Maintenance commands:
 | `orchestra -Status` | version, brain state, journal entry count, path to your seed |
 | `orchestra -Update` | update the agents to the distribution version; brain, passport and specs are untouched. Files you edited are not lost: before being overwritten they are copied to `<file>.bak` and listed |
 | `orchestra -Promote` | this project's personal rules -> your shared seed (`%APPDATA%\design-orchestra\seed\`); new projects only |
-| `orchestra -Share` | propose marked rules and this cycle's portable findings to the public seed: confirmation per item, findings anonymised before you see them, `PROJECT.md` never read, submitted by hand. See section 6c |
+| `orchestra -Share` | propose marked rules and this cycle's portable findings to the public seed: confirmation per item, findings anonymised before you see them, `PROJECT.md` never read, submitted by hand. See section 6c. **Windows only**, see section 1a |
 | `orchestra -NoBanner` | install without the ASCII banner. The banner appears on a **first install only** - never on `-Status`, `-Update`, `-Promote`, `-Share` or a repeat run - so this switch matters for scripted installs, or if you simply want the output shorter. Colour already turns itself off when `NO_COLOR` is set, when `TERM=dumb`, or when the output is piped to a file |
 
 ---
