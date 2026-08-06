@@ -1,0 +1,49 @@
+name: Bug
+description: The installer, an agent or a skill behaves differently than documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Console output beats a retelling. If the bug involves `-Share` or
+        `-Promote`, **do not paste the contents of your rules** - replace
+        them with "rule 1", "rule 2".
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. cd into an empty folder
+        2. orchestra
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Console output
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Orchestra version
+      description: "`orchestra -Status`"
+      placeholder: "1.8.0"
+    validations:
+      required: true
+  - type: input
+    id: psversion
+    attributes:
+      label: PowerShell and Windows
+      description: "`$PSVersionTable.PSVersion` and your Windows version"
+      placeholder: "5.1.26200 / Windows 11 24H2"
+    validations:
+      required: true

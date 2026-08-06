@@ -1,0 +1,96 @@
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  psscriptanalyzer:
+    name: PSScriptAnalyzer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: powershell
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+
+      - name: Analyze
+        shell: powershell
+        run: |
+          $r = Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\PSScriptAnalyzerSettings.psd1
+          if ($r) {
+            $r | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
+            Write-Host "PSScriptAnalyzer: $($r.Count) findings" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "PSScriptAnalyzer: clean" -ForegroundColor Green
+
+  encoding:
+    name: Encoding and structure
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .ps1/.psd1 must be UTF-8 with BOM
+        shell: powershell
+        run: |
+          $bad = @()
+          foreach ($f in (Get-ChildItem -Recurse -Include *.ps1,*.psd1)) {
+            $b = [System.IO.File]::ReadAllBytes($f.FullName)
+            if ($b.Length -lt 3 -or $b[0] -ne 0xEF -or $b[1] -ne 0xBB -or $b[2] -ne 0xBF) {
+              $bad += $f.FullName
+            }
+          }
+          if ($bad) {
+            Write-Host "Missing BOM (keeps encoding stable across editors):" -ForegroundColor Red
+            $bad | ForEach-Object { Write-Host "  $_" }
+            exit 1
+          }
+          Write-Host "All scripts are UTF-8 with BOM" -ForegroundColor Green
+
+      - name: VERSION matches CHANGELOG
+        shell: powershell
+        run: |
+          $v = (Get-Content VERSION -Raw).Trim()
+          $head = (Get-Content CHANGELOG.md | Where-Object { $_ -match '^##\s' } | Select-Object -First 1)
+          if ($head -notmatch [regex]::Escape($v)) {
+            Write-Host "VERSION = $v but the first CHANGELOG entry is: $head" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "VERSION $v matches CHANGELOG" -ForegroundColor Green
+
+      - name: Install smoke test on an empty folder
+        shell: powershell
+        run: |
+          $proj = Join-Path $env:RUNNER_TEMP "proj"
+          New-Item -ItemType Directory -Force $proj | Out-Null
+          Push-Location $proj
+          & "$env:GITHUB_WORKSPACE\dist\init-orchestra.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "install returned $LASTEXITCODE" }
+          $need = @(
+            ".claude\agents\builder.md",
+            ".claude\skills\feature\SKILL.md",
+            ".claude\skills\concept\SKILL.md",
+            ".claude\skills\foundation\SKILL.md",
+            ".claude\skills\log\SKILL.md",
+            "AGENTS.md",
+            "brain\rules\ux-patterns.md",
+            "specs\_template.md",
+            ".orchestra-version",
+            ".orchestra-manifest.txt"
+          )
+          $missing = $need | Where-Object { -not (Test-Path (Join-Path $proj $_)) }
+          if ($missing) {
+            Write-Host "Not deployed:" -ForegroundColor Red
+            $missing | ForEach-Object { Write-Host "  $_" }
+            exit 1
+          }
+          & "$env:GITHUB_WORKSPACE\dist\init-orchestra.ps1" -Update
+          if ($LASTEXITCODE -ne 0) { throw "-Update returned $LASTEXITCODE" }
+          Pop-Location
+          Write-Host "Install and update both succeeded" -ForegroundColor Green

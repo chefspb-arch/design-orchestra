@@ -1,0 +1,24 @@
+# Backups left behind by orchestra -Update
+*.bak
+
+# Install artefacts from user projects - these must never land here
+.orchestra-version
+.orchestra-manifest.txt
+brain/
+specs/*.md
+!specs/_template.md
+PROJECT.md
+CHANGELOG-DESIGN.md
+concepts/
+
+# The personal seed is not stored in the repository (it lives in %APPDATA%),
+# but guard against a manual copy anyway
+seed/
+
+# Windows / editors
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+.vscode/
+.idea/

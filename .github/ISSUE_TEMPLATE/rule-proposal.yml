@@ -1,0 +1,61 @@
+name: Rule proposal for the shared seed
+description: A portable UX rule accumulated by your Chronicler
+title: "Rule proposal"
+labels: ["rule-proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is usually opened by `orchestra -Share` with the text
+        already filled in. Acceptance criteria are in CONTRIBUTING.md.
+
+        **Read the text once more before submitting.** Nothing
+        project-specific may reach a public repository: no client or
+        product names, no links, no Figma node ids, no brand hex values,
+        no domain specifics.
+  - type: textarea
+    id: rules
+    attributes:
+      label: Proposed rules
+      description: One rule per bullet line, one to three lines of text.
+      placeholder: |
+        - Show validation errors at the field, not in a banner at the top
+      value: "## Proposed rules\n\n- "
+    validations:
+      required: true
+  - type: dropdown
+    id: tag
+    attributes:
+      label: Tag
+      options:
+        - forms
+        - actions
+        - flow
+        - content
+        - accessibility
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: Check
+      description: How does one decide unambiguously that this rule was violated?
+      placeholder: The screen shows an error message that is not attached to a field.
+    validations:
+      required: true
+  - type: textarea
+    id: basis
+    attributes:
+      label: What this is based on
+      description: How often and in what situations the edit repeated. No project names.
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: This rule is portable and works outside my project
+          required: true
+        - label: The text contains no client data and I am entitled to share it
+          required: true

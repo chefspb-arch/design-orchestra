@@ -1,0 +1,8 @@
+# Blank issues stay enabled on purpose: orchestra -Share opens
+# /issues/new?title=...&body=... and that path only works when
+# blank_issues_enabled is true.
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/chefspb-arch/design-orchestra/security/advisories/new
+    about: Do not open a public issue - use private reporting. See SECURITY.md

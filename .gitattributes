@@ -1,0 +1,15 @@
+# PowerShell 5.1 reads .ps1 as ANSI when the file has no BOM. Keeping the
+# BOM intact also keeps non-ASCII safe if any is ever added. So scripts are
+# binary as far as git is concerned: no re-encoding, no eol normalisation.
+*.ps1  -text
+*.psd1 -text
+
+# Docs and agent definitions are plain text, LF in the repository.
+*.md   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+LICENSE text eol=lf
+VERSION text eol=lf
+
+# GitHub: do not count documentation as code in language stats
+*.md linguist-documentation
