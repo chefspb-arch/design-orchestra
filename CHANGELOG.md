@@ -86,6 +86,44 @@ The guarantees are the point of this feature, so they are the same ones
   summary and both command tables say that findings are included and that
   `PROJECT.md` is never read.
 
+### Continuous integration
+
+The `/start` release went to `main` with a red build whose cause was not in
+the diff: `Install-Module PSScriptAnalyzer` failed, `Analyze` was skipped,
+and the job reported failure. Nothing in the pull request could have caused
+it, and nothing in the log said so. No behaviour change here, so the version
+stays at 1.10.0.
+
+- **The analyzer is cached** (`actions/cache`) and downloaded with
+  `Save-Module` into `RUNNER_TEMP` rather than installed into the user
+  profile. The workspace is deliberately avoided: anything under the checkout
+  would be walked by `Invoke-ScriptAnalyzer -Path . -Recurse` and by the BOM
+  check, so the job would end up analysing the analyser's own hundreds of
+  `.ps1`/`.psd1` files. `RUNNER_TEMP` is also independent of the runner
+  account name, which keeps the cache key stable.
+- **Three attempts with 5s/10s backoff**, and TLS 1.2 forced first: Windows
+  PowerShell 5.1 still negotiates 1.0/1.1 by default while PSGallery has
+  required 1.2 for years, and that mismatch surfaces as an opaque "Unable to
+  connect to the remote server".
+- **The version is pinned** (`PSSA_VERSION`) instead of floating to whatever
+  the gallery serves that morning, so a new analyzer release can no longer
+  turn `main` red without a commit that says so. The cache key follows the
+  pin, so bumping it is a one-line edit.
+- **A failure now explains itself.** The message states that this step is the
+  only one in the workflow that touches the network, that nothing in the diff
+  can cause it, and that re-running is the first thing to try - instead of
+  leaving a contributor hunting through their own changes.
+- **Three distinct failures are told apart.** A pin that is not a version
+  number fails immediately rather than burning 15s of backoff and then
+  blaming the gallery; a version the gallery does not have is reported as a
+  wrong pin and not retried at all, since the gallery answered. That branch
+  keys off `FullyQualifiedErrorId`, never the message text - error messages
+  are localised, and an English substring match silently took the wrong
+  branch when tested against a PowerShell answering in Russian.
+- `Analyze` verifies the module is where the cache should have put it and
+  prints the version it actually loaded, so a bad cache entry is not mistaken
+  for a code failure.
+
 ## 1.9.0
 
 One command to start from. The orchestra had four entry points and no door:
