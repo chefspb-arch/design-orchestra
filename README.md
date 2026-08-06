@@ -22,9 +22,11 @@ Every project is an isolated build with its own brain. Projects know
 nothing about each other.
 
 **Nothing leaves your machine on its own.** The single command that touches
-the network is `orchestra -Share`: it asks about each rule separately, shows
+the network is `orchestra -Share`: it asks about each item separately, shows
 you the list of what is NOT being sent, and at the end merely opens an issue
-form - you press the button.
+form - you press the button. It offers your marked rules plus this cycle's
+portable findings, anonymised **before** you see them. `PROJECT.md` is never
+read, and there is no switch to change that.
 
 ## Requirements
 
@@ -93,7 +95,7 @@ In PowerShell:
 | `orchestra -Status` | version, brain state, where your seed lives |
 | `orchestra -Update` | update the agents to the distribution version; brain, passport and specs are untouched, changed files are kept as `*.bak` |
 | `orchestra -Promote` | this project's personal rules -> your shared seed (new projects only) |
-| `orchestra -Share` | propose rules to the public seed: per-rule confirmation, you submit by hand |
+| `orchestra -Share` | propose marked rules **and this cycle's portable findings** to the public seed: per-item confirmation, findings anonymised before you see them, `PROJECT.md` never read, you submit by hand |
 
 Inside Claude Code, from the project folder:
 

@@ -9,7 +9,15 @@
 #                            so NEW projects start with them
 #   orchestra -Share       - propose portable rules to the PUBLIC seed (GitHub).
 #                            Every rule is confirmed SEPARATELY; you submit it
-#                            yourself, by hand
+#                            yourself, by hand. Also offers this cycle's
+#                            portable findings (contentious-point decisions,
+#                            source conflicts, exit-test frequencies) - each
+#                            one anonymised BEFORE you see it, then confirmed
+#                            one by one, exactly like a rule.
+#                            PROJECT.md is never read: the passport is dirty by
+#                            definition (names, mail, file keys, node ids,
+#                            phone numbers), and anonymisation is a floor, not
+#                            a guarantee - so there is no switch to opt into it
 #   orchestra -Status      - what is installed and at which version
 #
 # Every project gets its OWN copy of the agents and its OWN brain (./brain).
@@ -18,6 +26,14 @@
 # Your shared seed lives OUTSIDE this repository:
 #   %APPDATA%\design-orchestra\seed  (override with $env:DESIGN_ORCHESTRA_HOME)
 
+# [CmdletBinding()] is what makes an unknown switch an ERROR. Without it a
+# script's param() block is "simple": anything it does not recognise is
+# collected into $args and silently ignored, so `orchestra -Shrae` quietly
+# performs a plain install, and `orchestra -Share -IncludeDecisions` - a switch
+# that existed while this feature was being built - quietly runs an ordinary
+# -Share. Someone who still types it would conclude the passport held no
+# decisions, rather than learning it is deliberately never read.
+[CmdletBinding()]
 param(
   [switch]$Update,
   [switch]$Promote,
@@ -126,6 +142,141 @@ function Get-DataHint([string]$text) {
   if ($text -match '#[0-9A-Fa-f]{6}\b')     { return "a specific hex colour" }
   if ($text -match '\b[A-Za-z0-9]{22}\b')   { return "looks like a fileKey" }
   return $null
+}
+
+# ------------------------------------------------- anonymisation (Share) ----
+# Applied BEFORE the human sees a line, never after. The point is that nobody
+# has to spot an email in a wall of text at the moment they are saying yes.
+# It is a floor, not a guarantee - Test-ResidualIdentity flags what it cannot
+# safely rewrite, and the human still decides.
+
+# Names cannot be detected reliably, so they are listed, not guessed:
+#   $env:DESIGN_ORCHESTRA_REDACT_NAMES = "Jane Roe;John Doe"
+function Get-RedactNameList {
+  if (-not $env:DESIGN_ORCHESTRA_REDACT_NAMES) { return @() }
+  return @($env:DESIGN_ORCHESTRA_REDACT_NAMES -split ';' |
+           ForEach-Object { $_.Trim() } |
+           Where-Object { $_ -ne "" })
+}
+
+# ConvertTo-, not Remove-: this returns a rewritten copy and changes nothing on
+# the machine. A Remove-* verb would (correctly) be asked to support -WhatIf
+# and -Confirm, which would be meaningless for a pure string transform.
+function ConvertTo-AnonymisedText([string]$text) {
+  $t = $text
+  foreach ($n in (Get-RedactNameList)) {
+    $t = $t -replace [regex]::Escape($n), '<name removed>'
+  }
+  # The list above only helps if someone filled it in. Real names in these
+  # files almost always arrive as an ATTRIBUTION, so catch that shape directly
+  # - it is narrow enough not to eat domain terms like "Purchase Order".
+  # -creplace: -replace ignores case and would match ordinary lowercase words.
+  $roles = 'Compliance|Legal|Finance|Design|Engineering|Product|Admissions|Marketing|SCO|PM|QA|CTO|CEO'
+  $t = $t -creplace ('[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}(?=\s*[,/]\s*(' + $roles + ')\b)'), '<name removed>'
+  $t = $t -creplace '(?<=(?:—|--|-)\s)[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}(?=\s*[,.]|\s*$)', '<name removed>'
+  $t = $t -creplace '(?<=\b(?:by|per|from|contact|asked|confirmed by|according to)\s)[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}\b', '<name removed>'
+  $t = $t -replace '[\w.%+\-]+@[\w.\-]+\.[A-Za-z]{2,}', '<email removed>'
+  $t = $t -replace 'https?://(www\.)?figma\.com/\S*', '<figma link removed>'
+  $t = $t -replace 'https?://\S+', '<link removed>'
+  # -creplace, not -replace: PowerShell's -replace is case-INSENSITIVE, so
+  # [A-Z]{2,6}-[0-9]+ would also eat ordinary text like "top-10" or "step-07".
+  $t = $t -creplace '\b[A-Z]{2,6}-[0-9]{1,6}\b', '<ticket removed>'
+  # Instance ids first: the plain node-id rule below would otherwise consume
+  # the second half of I30:967;2012:878 and leave the first half stranded.
+  $t = $t -replace '\bI?[0-9]{1,7}:[0-9]{1,7};[0-9]{1,7}:[0-9]{1,7}\b', '<node id removed>'
+  $t = $t -replace '\b[0-9]{1,7}:[0-9]{1,7}\b', '<node id removed>'
+  $t = $t -replace '\b[A-Za-z]:\\[^\s,;]+', '<path removed>'
+  # A Figma fileKey is a bare 22+ char alphanumeric token. Checked last so the
+  # rewrites above do not leave one stranded mid-sentence.
+  $t = $t -replace '(?<![\w/])[A-Za-z0-9]{22,}(?![\w/])', '<figma key removed>'
+  return ($t -replace '\s{2,}', ' ').Trim()
+}
+
+# What the rewrites above cannot safely touch. A hint for the human, never a
+# silent edit - auto-stripping every Capitalised Pair would eat "Chapter 35"
+# and "Certificate of Eligibility" along with the surnames.
+function Test-ResidualIdentity([string]$text) {
+  $found = @()
+  # -cmatch throughout. With -match every one of these fires on every line,
+  # because -match ignores case and [A-Z] then matches lowercase too - a hint
+  # that fires always is worse than no hint, since people learn to skip it.
+  if ($text -cmatch '\b[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}\b') { $found += "a capitalised name-like pair" }
+  if ($text -cmatch '\bwww\.\S+')                          { $found += "a bare domain" }
+  # 9+ digits, so ISO dates like 2026-08-06 do not read as phone numbers.
+  if (($text -replace '[^0-9]', '').Length -ge 9 -and
+      $text -cmatch '\+?[0-9][0-9\s\-().]{7,}[0-9]')       { $found += "something phone-shaped" }
+  if ($text -cmatch '@[A-Za-z0-9_\-]{2,}')                 { $found += "an @handle" }
+  if (@($found).Count -eq 0) { return $null }
+  return ($found -join ", ")
+}
+
+# Pull list/table lines out of the sections we are willing to publish. The
+# whitelist is by SECTION, not by file: a file is never shipped wholesale.
+#
+# All state is function-local. An earlier version kept the accumulator in
+# $script: scope, because the nested Flush helper could not assign to its
+# parent's locals - a PowerShell rule that catches everyone once. That worked,
+# but it put the text queued for a PUBLIC issue in a script-wide variable that
+# any later code could read or overwrite. The helper is gone and the state is
+# local, so the only way out of this function is its return value.
+function Get-SectionItemList([string]$Path, [string[]]$HeadingPattern) {
+  if (-not (Test-Path $Path)) { return @() }
+  # Indexed, not foreach: we need lookahead for table headers, and we have to
+  # rejoin wrapped lines. Taking markdown one physical line at a time ships
+  # half-sentences - "...out of scope, contradicting" - into a public issue.
+  $lines    = @(Get-Content $Path -Encoding UTF8)
+  $items    = [System.Collections.ArrayList]::new()
+  $current  = ''
+  $inWanted = $false
+
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    $ln = $lines[$i]
+
+    if ($ln -match '^\s*#{1,6}\s') {
+      if ($current.Trim() -ne '') { [void]$items.Add((($current -replace '\s{2,}', ' ').Trim())) }
+      $current  = ''
+      $inWanted = $false
+      foreach ($p in $HeadingPattern) {
+        if ($ln -match $p) { $inWanted = $true; break }
+      }
+      continue
+    }
+    if (-not $inWanted) { continue }
+
+    if ($ln.Trim() -eq '') {
+      if ($current.Trim() -ne '') { [void]$items.Add((($current -replace '\s{2,}', ' ').Trim())) }
+      $current = ''
+      continue
+    }
+
+    if ($ln -match '^\s*\|') {
+      if ($current.Trim() -ne '') { [void]$items.Add((($current -replace '\s{2,}', ' ').Trim())) }
+      $current = ''
+      if ($ln -match '^\s*\|[\s\-:|]+\|\s*$') { continue }          # separator
+      # A row followed by a separator is the header, not data.
+      if ($i + 1 -lt $lines.Count -and $lines[$i + 1] -match '^\s*\|[\s\-:|]+\|\s*$') { continue }
+      $cells = @($ln.Trim().Trim('|') -split '\|' |
+                 ForEach-Object { $_.Trim() } |
+                 Where-Object { $_ -ne '' })
+      if ($cells.Count -ge 2) { [void]$items.Add(($cells -join ' - ')) }
+      continue
+    }
+
+    if ($ln -match '^\s{0,3}[-*]\s+\S') {
+      if ($current.Trim() -ne '') { [void]$items.Add((($current -replace '\s{2,}', ' ').Trim())) }
+      $current = ($ln.Trim() -replace '^[-*]\s+', '')
+      continue
+    }
+    if ($ln -match '^\s{0,3}[0-9]{1,3}[.)]\s+\S') {
+      if ($current.Trim() -ne '') { [void]$items.Add((($current -replace '\s{2,}', ' ').Trim())) }
+      $current = ($ln.Trim() -replace '^[0-9]{1,3}[.)]\s+', '')
+      continue
+    }
+    # anything else non-blank inside the section continues the current item
+    if ($current -ne '') { $current = $current + ' ' + $ln.Trim() }
+  }
+  if ($current.Trim() -ne '') { [void]$items.Add((($current -replace '\s{2,}', ' ').Trim())) }
+  return $items.ToArray()
 }
 
 $script:NoConsole = $false
@@ -298,16 +449,60 @@ if ($Share) {
     Write-Host "Block marking is not supported - mark each rule on its own line." -ForegroundColor Yellow
   }
 
-  if (@($candidates).Count -eq 0) {
-    Write-Host "No rules marked '$PromoteMarker' were found. Nothing to propose." -ForegroundColor Yellow
+  # ---- this cycle's portable findings, anonymised before anyone sees them ----
+  # Whitelisted sections only. A file is never shipped whole.
+  $findings   = @()   # @{ Group; Text }
+  $excluded   = @()
+
+  $chg = Join-Path $proj "CHANGELOG-DESIGN.md"
+  foreach ($it in (Get-SectionItemList $chg @('[Cc]ontentious', '[Ss]ource conflict'))) {
+    $findings += [pscustomobject]@{ Group = "Contentious-point decisions and source conflicts"; Text = $it }
+  }
+
+  foreach ($tf in (Get-ChildItem -Path $proj -Filter "EXIT-TEST*.md" -File -ErrorAction SilentlyContinue)) {
+    foreach ($it in (Get-SectionItemList $tf.FullName @('[Ss]ticking point', '[Ff]requency', '[Ff]low break'))) {
+      $findings += [pscustomobject]@{ Group = "Exit-test findings (synthetic run, frequencies)"; Text = $it }
+    }
+  }
+
+  # PROJECT.md is never opened. It is the one file guaranteed to hold client
+  # names, colleagues' names, mail, phone numbers, file keys and node ids all
+  # at once, and anonymisation is a floor rather than a guarantee: a phone
+  # number written as "+7 921 555 12 34" survives every rewrite here and only
+  # raises a hint. A switch to opt in was tried and removed - the person most
+  # likely to pass it is the person least likely to reread ten passport lines
+  # at a y/n prompt.
+  $passport = Join-Path $proj "PROJECT.md"
+  if (Test-Path $passport) {
+    $excluded += "PROJECT.md - the passport is dirty by definition; never read, and there is no switch to change that."
+  }
+
+  # Anonymise BEFORE display, then drop anything that anonymised down to noise.
+  $findings = @($findings | ForEach-Object {
+    $clean = ConvertTo-AnonymisedText $_.Text
+    if ($clean.Length -lt 12) { return }
+    [pscustomobject]@{ Group = $_.Group; Text = $clean }
+  } | Where-Object { $null -ne $_ })
+
+  if (@($candidates).Count -eq 0 -and @($findings).Count -eq 0) {
+    Write-Host "No rules marked '$PromoteMarker' and no portable findings. Nothing to propose." -ForegroundColor Yellow
     if (@($nonCandidate).Count -gt 0) {
       Write-Host "The file has $(@($nonCandidate).Count) unmarked rule(s) - they are not considered."
     }
+    foreach ($e in $excluded) { Write-Host "  not read: $e" -ForegroundColor DarkGray }
     exit 0
   }
 
+  if (@($findings).Count -gt 0 -and @(Get-RedactNameList).Count -eq 0) {
+    Write-Host ""
+    Write-Host "No name list is set, so only attribution-shaped names are caught automatically." -ForegroundColor Yellow
+    Write-Host 'Set one for this machine:  $env:DESIGN_ORCHESTRA_REDACT_NAMES = "Jane Roe;John Doe"' -ForegroundColor Yellow
+    Write-Host "Until then, read every finding for colleagues' names before you say yes." -ForegroundColor Yellow
+  }
+
   Write-Host ""
-  Write-Host "Candidates found: $(@($candidates).Count). Confirm EACH one separately." -ForegroundColor Yellow
+  Write-Host "To confirm: $(@($candidates).Count) rule(s), $(@($findings).Count) finding(s). EACH one separately." -ForegroundColor Yellow
+  Write-Host "Findings are anonymised before you see them - names, mail, keys, node ids, tickets and links are already stripped." -ForegroundColor DarkGray
   Write-Host "An empty answer means 'no'. Nothing is sent - an issue form opens, you press the button."
   Write-Host ""
 
@@ -329,26 +524,64 @@ if ($Share) {
     Write-Host ""
   }
 
+  # ---- findings, same ceremony: one at a time, anonymised text shown as-is ----
+  $okFindings  = @()
+  $noFindings  = @()
+  if (@($findings).Count -gt 0) {
+    $j = 0
+    $lastGroup = ""
+    foreach ($f in $findings) {
+      $j++
+      if ($f.Group -ne $lastGroup) {
+        Write-Host "-- $($f.Group) --" -ForegroundColor Cyan
+        $lastGroup = $f.Group
+      }
+      Write-Host "[$j/$(@($findings).Count)] $($f.Text)"
+      $res = Test-ResidualIdentity $f.Text
+      if ($res) {
+        Write-Host "        hint: anonymisation could not safely rewrite $res. Read it again before saying yes." -ForegroundColor Yellow
+      }
+      if (Read-YesNo "        Propose this finding publicly? (y/n)") {
+        $okFindings += $f
+      } else {
+        $noFindings += $f
+      }
+      Write-Host ""
+    }
+  }
+
   $notSent = @($declined) + @($nonCandidate)
-  if (@($notSent).Count -gt 0) {
-    Write-Host "NOT BEING SENT - $(@($notSent).Count) rule(s):" -ForegroundColor DarkGray
-    foreach ($n in $declined)     { Write-Host "  - $n   [you declined]" -ForegroundColor DarkGray }
-    foreach ($n in $nonCandidate) { Write-Host "  - $n   [not marked]" -ForegroundColor DarkGray }
+  if (@($notSent).Count -gt 0 -or @($noFindings).Count -gt 0 -or @($excluded).Count -gt 0) {
+    Write-Host "NOT BEING SENT:" -ForegroundColor DarkGray
+    foreach ($n in $declined)     { Write-Host "  - $n   [rule, you declined]" -ForegroundColor DarkGray }
+    foreach ($n in $nonCandidate) { Write-Host "  - $n   [rule, not marked]" -ForegroundColor DarkGray }
+    foreach ($n in $noFindings)   { Write-Host "  - $($n.Text)   [finding, you declined]" -ForegroundColor DarkGray }
+    foreach ($e in $excluded)     { Write-Host "  - $e" -ForegroundColor DarkGray }
     Write-Host ""
   }
 
-  if (@($approved).Count -eq 0) {
-    Write-Host "No rules approved. Nothing was sent."
+  if (@($approved).Count -eq 0 -and @($okFindings).Count -eq 0) {
+    Write-Host "Nothing approved. Nothing was sent."
     exit 0
   }
 
-  Write-Host "GOING INTO A PUBLIC ISSUE - $(@($approved).Count) rule(s):" -ForegroundColor Yellow
-  foreach ($a in $approved) { Write-Host "  - $a" }
+  Write-Host "GOING INTO A PUBLIC ISSUE - $(@($approved).Count) rule(s), $(@($okFindings).Count) finding(s):" -ForegroundColor Yellow
+  foreach ($a in $approved)   { Write-Host "  - $a" }
+  foreach ($f in $okFindings) { Write-Host "  - $($f.Text)" }
   Write-Host ""
 
-  $bodyText = "## Proposed rules" + "`n`n" +
-              (($approved | ForEach-Object { "- $_" }) -join "`n") + "`n`n" +
-              "---`nSubmitted via orchestra -Share (v$ver). Each rule was confirmed individually."
+  $bodyText = ""
+  if (@($approved).Count -gt 0) {
+    $bodyText += "## Proposed rules" + "`n`n" +
+                 (($approved | ForEach-Object { "- $_" }) -join "`n") + "`n`n"
+  }
+  foreach ($g in (@($okFindings) | ForEach-Object { $_.Group } | Select-Object -Unique)) {
+    $bodyText += "## $g" + "`n`n" +
+                 ((@($okFindings) | Where-Object { $_.Group -eq $g } |
+                   ForEach-Object { "- $($_.Text)" }) -join "`n") + "`n`n"
+  }
+  $bodyText += "---`nSubmitted via orchestra -Share (v$ver). Each item was confirmed individually. " +
+               "Findings were anonymised before being shown for confirmation; no project file was exported whole."
   $bodyFile = Join-Path $env:TEMP "orchestra-share.md"
   Set-Content -Path $bodyFile -Value $bodyText -Encoding UTF8
 

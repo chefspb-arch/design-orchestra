@@ -4,6 +4,88 @@ Release history of the orchestra. Loosely follows Keep a Changelog.
 (Not to be confused with `CHANGELOG-DESIGN.md`, which is created inside
 your project and tracks mockup versions rather than the tool.)
 
+## 1.10.0
+
+`-Share` learns to offer this cycle's findings, not just rules. The rules
+channel was the only way anything portable left a project, and a rule is a
+narrow shape: "contentious point X was decided as Y, because Z" is useful to
+someone else's project but is not a rule and had nowhere to go.
+
+The guarantees are the point of this feature, so they are the same ones
+`-Share` already made for rules, with no exceptions and no new switches.
+
+### Added
+
+- **Portable findings are offered alongside marked rules.** Contentious-point
+  decisions and source conflicts from `CHANGELOG-DESIGN.md`; sticking points,
+  frequencies and flow breaks from `EXIT-TEST*.md`. Whitelisted **sections**,
+  never whole files - a heading you invent yourself is not read, so anything
+  you want kept out can simply live under its own heading.
+- **Findings are anonymised BEFORE they are shown, not after approval.**
+  Emails, links (Figma, Linear, any `http`), node and instance ids, ticket
+  keys, Windows paths and Figma file keys are already rewritten in the text on
+  screen. Nobody should have to spot an address in a wall of text at the
+  moment they are saying yes.
+- **Names are listed, not guessed** - `DESIGN_ORCHESTRA_REDACT_NAMES`, plus
+  attribution shapes ("per Jane Roe", "- John Doe, Legal") caught directly.
+  When the list is empty the orchestra says so out loud rather than implying
+  a coverage it does not have.
+- **`Test-ResidualIdentity` hints at what could not be rewritten safely** -
+  a capitalised pair that might be a surname or might be "Purchase Order", a
+  bare domain, something phone-shaped. A hint, never a silent edit.
+- Same ceremony as rules throughout: one item at a time, empty answer means
+  no, full text shown before anything is sent, and a "NOT BEING SENT" list
+  covering refusals, unmarked rules and files deliberately skipped.
+
+### Security
+
+- **`PROJECT.md` is never read, and the switch to opt in is gone.** While
+  this feature was being built it had `-Share -IncludeDecisions`, which
+  offered the passport's product decisions line by line. It was removed: the
+  passport is the one file guaranteed to hold client names, colleagues, mail,
+  phone numbers, file keys and node ids at once, and anonymisation is a floor
+  rather than a guarantee. A phone number written as `+7 921 555 12 34`
+  survives every rewrite in this script and raises only a hint - verified
+  against a passport built for the purpose. The person most likely to pass
+  such a switch is the person least likely to reread ten passport lines at a
+  y/n prompt.
+- **An unknown switch is now an error.** The script's `param()` block had no
+  `[CmdletBinding()]`, which makes it "simple": PowerShell collects anything
+  it does not recognise into `$args` and ignores it silently. So
+  `orchestra -Shrae` quietly performed a plain install, and - once
+  `-IncludeDecisions` was removed - `orchestra -Share -IncludeDecisions`
+  would have quietly run an ordinary `-Share`, leaving someone to conclude
+  the passport held no decisions rather than that it is deliberately never
+  read.
+
+### Fixed
+
+- **`Get-SectionItems` kept the text queued for a public issue in
+  script-scope variables.** Its accumulator lived in `$script:acc` and
+  `$script:cur` because its nested `Flush` helper could not assign to its
+  parent's locals - the PowerShell scoping rule that catches everyone once.
+  The output was correct (an old-versus-new differential over eleven markdown
+  shapes plus interleaved calls agrees everywhere), but material headed for a
+  public issue had no business sitting in a script-wide variable. The helper
+  is gone, the state is function-local, and the only way out of the function
+  is its return value. The two dead locals PSScriptAnalyzer flagged, `$items`
+  and `$current`, were the leftovers of that same workaround.
+- Nine PSScriptAnalyzer findings, fixed in the code rather than by relaxing
+  the settings: `Get-RedactNames` -> `Get-RedactNameList`, `Get-SectionItems`
+  -> `Get-SectionItemList` (singular nouns), `Remove-Identifiers` ->
+  `ConvertTo-AnonymisedText` (it returns a rewritten copy and changes nothing
+  on the machine, so a `Remove-*` verb was being asked for `-WhatIf` and
+  `-Confirm` support that would mean nothing), and three
+  `$x -ne $null` comparisons removed along with the helper that held them.
+
+### Documentation
+
+- The feature shipped undocumented - the commit touched only the script.
+  Section 6c of the guide now covers what else `-Share` offers, what is read
+  and what is not, how anonymisation works and where its floor is; the README
+  summary and both command tables say that findings are included and that
+  `PROJECT.md` is never read.
+
 ## 1.9.0
 
 One command to start from. The orchestra had four entry points and no door:
