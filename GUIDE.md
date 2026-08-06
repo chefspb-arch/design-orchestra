@@ -1,5 +1,5 @@
 # The orchestra: user manual
-Version 1.9.0
+Version 1.10.0
 
 ---
 
@@ -48,7 +48,7 @@ Maintenance commands:
 | `orchestra -Status` | version, brain state, journal entry count, path to your seed |
 | `orchestra -Update` | update the agents to the distribution version; brain, passport and specs are untouched. Files you edited are not lost: before being overwritten they are copied to `<file>.bak` and listed |
 | `orchestra -Promote` | this project's personal rules -> your shared seed (`%APPDATA%\design-orchestra\seed\`); new projects only |
-| `orchestra -Share` | propose marked rules to the public seed: confirmation per rule, submitted by hand. See section 6c |
+| `orchestra -Share` | propose marked rules and this cycle's portable findings to the public seed: confirmation per item, findings anonymised before you see them, `PROJECT.md` never read, submitted by hand. See section 6c |
 
 ---
 
@@ -239,6 +239,49 @@ Then, step by step:
 Set the destination once:
 
     $env:DESIGN_ORCHESTRA_REPO = "https://github.com/<login>/design-orchestra"
+
+### What else -Share offers, besides rules
+
+After the rules, `-Share` offers this cycle's **portable findings** - the
+parts of a build that are useful to someone else's project and carry no
+product detail:
+
+- contentious-point decisions and source conflicts, from
+  `CHANGELOG-DESIGN.md`;
+- exit-test findings - sticking points, frequencies, flow breaks - from
+  `EXIT-TEST*.md`.
+
+Only **whitelisted sections** of those files are read; a file is never
+shipped whole. A section you invent yourself is not read, so anything you
+want kept out can simply live under its own heading.
+
+Each finding goes through the same ceremony as a rule: printed on its own,
+y/n, empty answer means no, and listed afterwards under "NOT BEING SENT" if
+you refused.
+
+The difference is that findings are **anonymised before you see them**, not
+after you approve them. Emails, links (Figma, Linear, anything `http`),
+node ids, instance ids, ticket keys, Windows paths and Figma file keys are
+already rewritten in the text on screen. The point is that nobody has to
+spot an address in a wall of text at the moment they are saying yes.
+
+Names cannot be detected reliably, so they are **listed, not guessed**:
+
+    $env:DESIGN_ORCHESTRA_REDACT_NAMES = "Jane Roe;John Doe"
+
+Without that list only attribution-shaped names are caught ("per Jane Roe",
+"- John Doe, Legal"). The orchestra says so out loud when the list is empty.
+Where it cannot safely rewrite something - a capitalised pair that might be
+a surname or might be "Purchase Order", a bare domain, something
+phone-shaped - it prints a hint and leaves the text alone. Auto-stripping
+every Capitalised Pair would eat "Chapter 35" along with the surnames.
+
+**`PROJECT.md` is never read.** The passport is the one file guaranteed to
+hold client names, colleagues, mail, phone numbers and file keys at once,
+and anonymisation is a floor, not a guarantee - a phone number written as
+`+7 921 555 12 34` survives every rewrite and only raises a hint. There is
+no switch to opt in. If a product decision is genuinely portable, write it
+as a rule and mark it.
 
 ---
 
